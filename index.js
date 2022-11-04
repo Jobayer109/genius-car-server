@@ -42,8 +42,8 @@ const dbConnect = async () => {
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
-      console.log(user);
-      const token = jwt.sign(user, process.env.SECRET, { expiresIn: "5" });
+      // console.log(user);
+      const token = jwt.sign(user, process.env.SECRET, { expiresIn: "1d" });
       res.send({ token });
     });
 
@@ -69,9 +69,10 @@ const dbConnect = async () => {
 
     app.get("/orders", verifyJWT, async (req, res) => {
       const decoded = req.decoded;
+      // console.log(decoded);
 
       if (decoded.email !== req.query.email) {
-        return res.status(403).send({ message: "unauthorized access" });
+        res.status(401).send({ message: "unauthorized access" });
       }
 
       let query = {};
@@ -106,7 +107,7 @@ const dbConnect = async () => {
   } finally {
   }
 };
-dbConnect().catch((err) => console.error(err));
+dbConnect().catch((err) => console.error(err.message));
 
 app.get("/", (req, res) => {
   res.send("Genius server is running");
