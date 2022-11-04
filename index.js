@@ -3,11 +3,12 @@ const cors = require("cors");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const app = express();
 const port = process.env.PORT || 5000;
+require("dotenv").config();
+const jwt = require("jsonwebtoken");
 
 app.use(cors());
 app.use(express.json());
 
-require("dotenv").config();
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.nmcknth.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -15,10 +16,33 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+const verifyJWT = (req, res, next) => {
+  const authHeaders = req.headers.authorization;
+  if (!authHeaders) {
+    return res.status(401).send({ message: "unAuthorized access" });
+  }
+
+  const token = authHeaders.split(" ")[1];
+  console.log("test:", token);
+  jwt.verify(token, process.env.SECRET, (error, decoded) => {
+    if (error) {
+      return res.status(403).send({ message: "Forbidden access" });
+    }
+    req.decoded = decoded;
+    next();
+  });
+};
+
 const dbConnect = async () => {
   try {
     const serviceCollection = client.db("GeniusCar").collection("services");
     const orderCollection = client.db("GeniusCar").collection("orders");
+
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.SECRET, { expiresIn: "1d" });
+      res.send({ token });
+    });
 
     app.get("/services", async (req, res) => {
       const cursor = serviceCollection.find({});
@@ -40,9 +64,8 @@ const dbConnect = async () => {
       res.send(result);
     });
 
-    app.get("/orders", async (req, res) => {
+    app.get("/orders", verifyJWT, async (req, res) => {
       let query = {};
-
       if (req.query.email) {
         query = { email: req.query.email };
       }
@@ -64,9 +87,9 @@ const dbConnect = async () => {
       const query = { _id: ObjectId(id) };
       const status = req.body.status;
       const updateDoc = {
-        $set:{
-          status: status
-        }
+        $set: {
+          status: status,
+        },
       };
       const result = await orderCollection.updateOne(query, updateDoc);
       res.send(result);
