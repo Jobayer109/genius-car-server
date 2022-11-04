@@ -9,6 +9,7 @@ const jwt = require("jsonwebtoken");
 app.use(cors());
 app.use(express.json());
 
+//Mongodb connection
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASSWORD}@cluster0.nmcknth.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, {
   useNewUrlParser: true,
@@ -16,15 +17,16 @@ const client = new MongoClient(uri, {
   serverApi: ServerApiVersion.v1,
 });
 
+//JWT verify
 const verifyJWT = (req, res, next) => {
   const authHeaders = req.headers.authorization;
+  // console.log(authHeaders);
   if (!authHeaders) {
     return res.status(401).send({ message: "unAuthorized access" });
   }
 
   const token = authHeaders.split(" ")[1];
-  console.log("test:", token);
-  jwt.verify(token, process.env.SECRET, (error, decoded) => {
+  jwt.verify(token, process.env.SECRET, function (error, decoded) {
     if (error) {
       return res.status(403).send({ message: "Forbidden access" });
     }
@@ -40,7 +42,8 @@ const dbConnect = async () => {
 
     app.post("/jwt", (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.SECRET, { expiresIn: "1d" });
+      console.log(user);
+      const token = jwt.sign(user, process.env.SECRET, { expiresIn: "5" });
       res.send({ token });
     });
 
@@ -65,6 +68,12 @@ const dbConnect = async () => {
     });
 
     app.get("/orders", verifyJWT, async (req, res) => {
+      const decoded = req.decoded;
+
+      if (decoded.email !== req.query.email) {
+        return res.status(403).send({ message: "unauthorized access" });
+      }
+
       let query = {};
       if (req.query.email) {
         query = { email: req.query.email };
